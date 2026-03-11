@@ -1,4 +1,4 @@
-# AEM Hacker
+# AEM Hacker2
 
 CLI tool for testing Adobe Experience Manager installations during a pentest.
 
