@@ -73,6 +73,7 @@ class EdgeBlockingTests(unittest.TestCase):
         self.assertTrue(any(f.check_id == "AEM-EDGE-001" for f in outcome.findings))
         self.assertTrue(any(f.category == "edge_blocking" for f in outcome.findings))
         self.assertTrue(any("BIG-IP" in f.title for f in outcome.findings))
+        self.assertTrue(all("score=" not in (f.evidence.rationale or "") for f in outcome.findings))
 
 
 if __name__ == "__main__":

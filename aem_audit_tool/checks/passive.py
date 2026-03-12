@@ -19,34 +19,6 @@ def _evidence(path: str, status: int | None, response_hash: str, text: str, rati
     )
 
 
-# Severity mapping for endpoint categories
-CATEGORY_SEVERITY = {
-    "console": "high",
-    "crx": "high",
-    "packmgr": "critical",
-    "replication": "high",
-    "querybuilder": "medium",
-    "granite": "medium",
-    "sling": "medium",
-    "acs_commons": "high",
-    "groovy_console": "critical",
-    "analytics": "medium",
-    "cloudservices": "medium",
-    "opensocial": "high",
-    "mcm_salesforce": "high",
-    "wcm": "medium",
-    "dam": "medium",
-    "admin_ui": "high",
-    "reports": "medium",
-    "content_paths": "low",
-    "repository": "medium",
-    "security": "medium",
-    "cq_search": "low",
-    "cq_forms": "high",
-    "cq_other": "medium",
-}
-
-
 class ComprehensiveExposureCheck(Check):
     check_id = "AEM-EXP-001"
     name = "exposure"
@@ -61,14 +33,13 @@ class ComprehensiveExposureCheck(Check):
         findings: List[Finding] = []
 
         # Flatten endpoints with category metadata
-        probe_list: List[Tuple[str, str, str]] = []
+        probe_list: List[Tuple[str, str]] = []
         for category, paths in endpoints_by_category.items():
-            severity = CATEGORY_SEVERITY.get(category, "medium")
             for path in paths:
-                probe_list.append((path, category, severity))
+                probe_list.append((path, category))
 
-        def probe(item: Tuple[str, str, str]) -> tuple[Tuple[str, str, str], object]:
-            path, category, severity = item
+        def probe(item: Tuple[str, str]) -> tuple[Tuple[str, str], object]:
+            path, category = item
             result = ctx.client.request("GET", path)
             return item, result
 
@@ -76,15 +47,15 @@ class ComprehensiveExposureCheck(Check):
             futures = [pool.submit(probe, item) for item in probe_list]
             for future in concurrent.futures.as_completed(futures):
                 item, result = future.result()
-                path, category, severity = item
+                path, category = item
                 if result.error:
                     continue
-                if result.status_code in (200, 201, 202, 204, 401, 403):
+                if result.status_code in (200, 201, 202, 204):
                     findings.append(
                         Finding(
                             check_id=self.check_id,
-                            title=f"AEM {category} endpoint reachable",
-                            severity=severity if result.status_code == 200 else "info",
+                            title=f"AEM {category} endpoint exposed",
+                            severity="info",
                             category="aem_surface_exposure",
                             evidence=_evidence(
                                 path=result.url,
@@ -182,12 +153,12 @@ class VulnerabilityClassCheck(Check):
             result = ctx.client.request("GET", path)
             if result.error:
                 continue
-            if result.status_code in (200, 401, 403):
+            if result.status_code == 200:
                 findings.append(
                     Finding(
                         check_id=self.check_id,
                         title=title,
-                        severity=sev if result.status_code == 200 else "info",
+                        severity=sev,
                         category="vulnerability_class",
                         evidence=_evidence(
                             path=result.url,

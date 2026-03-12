@@ -132,34 +132,34 @@ class EdgeBlockingDetectionCheck(Check):
             bigip_markers.extend(_bigip_signals(result))
         bigip_markers = list(dict.fromkeys(bigip_markers))
 
-        score = 0
         reasons: List[str] = []
+        strong_signals = 0
 
         if benign_ok >= 2 and len(suspicious_blocked) >= 2:
-            score += 30
+            strong_signals += 1
             reasons.append(
                 f"Differential behavior detected: benign probes reachable ({benign_ok}) while sensitive probes are blocked ({len(suspicious_blocked)})."
             )
 
         if edge_confident >= 3:
-            score += 20
+            strong_signals += 1
             reasons.append(f"Multiple responses classified as edge-filtered (count={edge_confident}).")
 
         if repeated_hash:
-            score += 15
+            strong_signals += 1
             reasons.append(
                 f"Repeated response signature detected (hash={repeated_hash_value}), indicating a likely generic block page."
             )
 
         if bigip_markers:
-            score += 35
+            strong_signals += 1
             reasons.append("BIG-IP/F5 indicators present: " + ", ".join(bigip_markers[:4]))
 
         if any((r.status_code == 429) for _, r in all_results):
-            score += 10
+            strong_signals += 1
             reasons.append("Rate-limiting behavior observed (HTTP 429).")
 
-        if score < 45:
+        if strong_signals < 2:
             return CheckOutcome(findings=[], artifacts=[])
 
         representative = suspicious_blocked[0] if suspicious_blocked else all_results[0]
@@ -169,16 +169,13 @@ class EdgeBlockingDetectionCheck(Check):
             Finding(
                 check_id=self.check_id,
                 title="Reverse proxy/WAF blocking likely affecting scan coverage",
-                severity="high" if score >= 65 else "medium",
+                severity="high" if (bigip_markers or len(suspicious_blocked) >= 3 or edge_confident >= 4) else "medium",
                 category="edge_blocking",
                 evidence=_build_evidence(
                     endpoint=representative_result.url,
                     status=representative_result.status_code,
                     response_hash=representative_result.response_hash,
-                    rationale=(
-                        f"Blocking confidence score={score}/100. "
-                        + " ".join(reasons[:4])
-                    ),
+                    rationale=" ".join(reasons[:4]),
                     snippet=(
                         f"representative_path={representative_path}; "
                         f"status={representative_result.status_code}; "

@@ -74,8 +74,9 @@ class FingerprintCheck(Check):
                     response_hash="-",
                     snippet="; ".join(markers[:4]) or "No reliable AEM markers",
                     rationale=(
-                        f"Confidence={confidence}. Likely AEM={ctx.fingerprint.is_likely_aem}. "
-                        f"Detected version={version or 'unknown'}."
+                        f"Likely AEM={ctx.fingerprint.is_likely_aem}. "
+                        f"Detected version={version or 'unknown'}. "
+                        f"Observed markers={len(markers)}."
                     ),
                 ),
                 recommendation=(

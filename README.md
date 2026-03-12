@@ -1,6 +1,13 @@
 # AEM Hacker2
 
-CLI tool for testing Adobe Experience Manager installations during a pentest.
+CLI tool for assessing Adobe Experience Manager installations during authorised security testing.
+
+This project started as an internal AEM assessment script used during penetration tests. The current codebase consolidates the older AEM Hacker checks and additional coverage inspired by Assetnote's Hopgoblin research and tooling for recent AEM attack paths:
+
+- Legacy internal AEM Hacker logic and endpoint coverage
+- Assetnote Hopgoblin: https://github.com/assetnote/hopgoblin
+
+When reusing or extending the project, keep that provenance visible and review the upstream project directly for its own licensing and implementation details.
 
 ---
 
@@ -53,6 +60,19 @@ python3 aem_audit.py --target https://aem.example.com --profile deep --dry-run
 # Print coverage matrix
 python3 aem_audit.py --print-coverage-matrix
 ```
+
+---
+
+## Output
+
+The default terminal report is designed to be concise and evidence-first:
+
+- No overall risk score or synthetic scan score
+- Short assessment summary with AEM detection, edge-filtering notes, and auth-gated surface counts
+- Priority findings separated from supporting and informational findings
+- Optional JSON and Markdown output only when `--json-out` or `--md-out` is provided
+
+The scanner reports evidence and severity per finding. It does not try to collapse the assessment into a single numeric rating.
 
 ---
 

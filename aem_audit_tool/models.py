@@ -145,6 +145,8 @@ class HttpResult:
     text: str
     response_hash: str
     error: Optional[str]
+    # Raw HTTP status before any local normalization heuristics.
+    raw_status_code: Optional[int] = None
 
 
 @dataclasses.dataclass

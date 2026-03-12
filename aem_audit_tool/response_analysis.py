@@ -255,10 +255,7 @@ def analyse_response(result: HttpResult) -> ResponseTierAnalysis:
     if not rationale_parts:
         rationale_parts.append("No distinguishing markers found; tier classification uncertain.")
 
-    rationale = (
-        f"tier={tier} aem_confidence={aem_confidence} edge_confidence={edge_confidence}. "
-        + " | ".join(rationale_parts)
-    )
+    rationale = f"tier={tier}. " + " | ".join(rationale_parts)
 
     # ------------------------------------------------------------------
     # Recommendations
@@ -311,7 +308,6 @@ def tier_finding_rationale(analysis: ResponseTierAnalysis) -> str:
     Return a compact one-liner suitable for embedding in a Finding rationale.
     """
     return (
-        f"[TierAnalysis] tier={analysis.tier} "
-        f"aem_conf={analysis.aem_confidence} edge_conf={analysis.edge_confidence}. "
-        f"{analysis.rationale[:200]}"
+        f"[TierAnalysis] tier={analysis.tier}. "
+        f"{analysis.rationale[:220]}"
     )

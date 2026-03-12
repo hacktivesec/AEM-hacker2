@@ -170,17 +170,15 @@ class AdvancedDispatcherBypassCheck(Check):
                 baseline_code = baselines.get(base_path)
                 analysis = analyse_response(result)
 
-                # Flag when variant is more permissive than baseline
+                # Flag only when the variant becomes genuinely accessible.
+                # 401/403 indicate auth-gating or edge denial, not a confirmed bypass vulnerability.
                 bypass_hit = (
-                    result.status_code in (200, 401, 403)
-                    and baseline_code in (404, 400, None)
-                ) or (
                     result.status_code == 200
-                    and baseline_code in (401, 403)
+                    and baseline_code in (404, 400, None, 401, 403)
                 )
 
                 if bypass_hit:
-                    sev = "critical" if result.status_code == 200 else "high"
+                    sev = "critical" if baseline_code in (401, 403) else "high"
                     findings.append(
                         Finding(
                             check_id=self.check_id,
@@ -276,12 +274,16 @@ class SelectorManipulationCheck(Check):
                 # Interesting only if the response looks like it came from Sling (JSON/XML content)
                 ct = result.headers.get("content-type", "").lower()
                 body = result.text or ""
+                body_l = body.lstrip().lower()
+                looks_html = body_l.startswith("<html") or "<title>burp suite professional" in body_l
+                looks_json = body_l.startswith("{") or body_l.startswith("[")
+                looks_xml = body_l.startswith("<?xml") or body_l.startswith("<jcr:")
                 is_json_xml = (
                     "json" in ct
                     or "xml" in ct
-                    or body.lstrip().startswith("{")
-                    or body.lstrip().startswith("<")
-                )
+                    or looks_json
+                    or looks_xml
+                ) and not looks_html
                 has_jcr = any(m in body for m in ("jcr:", "sling:", "cq:", ":jcr"))
 
                 if not (is_json_xml or has_jcr):
@@ -400,7 +402,9 @@ class SlingPostServletCheck(Check):
                 del_resp = ctx.client.request(
                     "POST", node_path, data={":operation": "delete"}
                 )
-                cleanup_ok = del_resp.status_code in (200, 201, 204) and not del_resp.error
+                verify_resp = ctx.client.request("GET", node_path)
+                removed = verify_resp.status_code in (401, 403, 404)
+                cleanup_ok = not verify_resp.error and removed
                 artifacts.append(
                     ActionArtifact(
                         action_id=f"AEM-SLING-CLEANUP-{target_base.replace('/', '_')}",
@@ -408,7 +412,11 @@ class SlingPostServletCheck(Check):
                         artifact_path=node_path,
                         cleanup_attempted=True,
                         cleanup_success=cleanup_ok,
-                        notes=del_resp.error or f"delete_status={del_resp.status_code}",
+                        notes=(
+                            f"delete_status={del_resp.status_code}; verify_status={verify_resp.status_code}; removed={removed}"
+                            if not del_resp.error and not verify_resp.error
+                            else f"delete_error={del_resp.error}; verify_error={verify_resp.error}"
+                        ),
                     )
                 )
 

@@ -114,8 +114,14 @@ class StateChangingProbeCheck(Check):
         )
 
         delete_resp = ctx.client.request("POST", target_path, data={":operation": "delete"})
-        cleanup_success = delete_resp.status_code in (200, 201, 204) and not delete_resp.error
-        cleanup_note = delete_resp.error or f"delete_status={delete_resp.status_code}"
+        verify_resp = ctx.client.request("GET", target_path)
+        removed = verify_resp.status_code in (401, 403, 404)
+        cleanup_success = not verify_resp.error and removed
+        cleanup_note = (
+            f"delete_status={delete_resp.status_code}; verify_status={verify_resp.status_code}; removed={removed}"
+            if not delete_resp.error and not verify_resp.error
+            else f"delete_error={delete_resp.error}; verify_error={verify_resp.error}"
+        )
 
         findings.append(
             Finding(
@@ -124,11 +130,14 @@ class StateChangingProbeCheck(Check):
                 severity="info" if cleanup_success else "high",
                 category="active_testing",
                 evidence=Evidence(
-                    endpoint=delete_resp.url,
-                    status_code=delete_resp.status_code,
-                    response_hash=delete_resp.response_hash,
-                    snippet=delete_resp.text[:160].replace("\n", " "),
-                    rationale="Cleanup probe tracks whether temporary test node was removed.",
+                    endpoint=verify_resp.url,
+                    status_code=verify_resp.status_code,
+                    response_hash=verify_resp.response_hash,
+                    snippet=verify_resp.text[:160].replace("\n", " "),
+                    rationale=(
+                        "Cleanup probe verifies post-delete node state. "
+                        f"delete_status={delete_resp.status_code}; verify_status={verify_resp.status_code}; removed={removed}."
+                    ),
                 ),
                 recommendation=(
                     "No action required beyond repository verification."
